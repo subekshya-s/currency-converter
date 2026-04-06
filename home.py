@@ -1,88 +1,150 @@
+from db import create_database, get_connection
+
+#------------------------------------------------Table Creation--------------------------------------------------------------------------------------
+
+def create_table():
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS currency_conversions (
+                    id SERIAL PRIMARY KEY,
+                    from_currency VARCHAR(10),
+                    to_currency VARCHAR(10),
+                    amount NUMERIC,
+                    converted_amount NUMERIC,
+                    conversion_rate NUMERIC
+                );
+            """)
+    conn.close()
+    print("Table created!")
+
+#------------------------------------------------------CRUD OPerations----------------------------------------------------------------------------------------------------
+
+# CREATE
+def insert_conversion(from_currency, to_currency, amount, converted_amount, conversion_rate):
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO currency_conversions
+                (from_currency, to_currency, amount, converted_amount, conversion_rate)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (from_currency, to_currency, amount, converted_amount, conversion_rate))
+    conn.close()
+    print("Conversion saved successfully!")
+
+
+# READ
+def read_conversions():
+    conn = get_connection()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM currency_conversions;")
+        records = cursor.fetchall()
+        for record in records:
+            print(record)
+    conn.close()
+
+
+# UPDATE
+def update_conversion(record_id, new_amount, new_converted_amount):
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                UPDATE currency_conversions
+                SET amount = %s, converted_amount = %s
+                WHERE id = %s;
+            """, (new_amount, new_converted_amount, record_id))
+    conn.close()
+    print("Record updated successfully!")
+
+
+# DELETE
+def delete_conversion(record_id):
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                DELETE FROM currency_conversions
+                WHERE id = %s;
+            """, (record_id,))
+    conn.close()
+    print("Record deleted successfully!")
+
+
 # """TASK 1:
 # Program: Currency Input Program
 # Objective:
 # This program asks the user to enter a currency type and an amount.
 # It checks if the amount entered is a valid number.
 # Then it displays the currency and amount entered by the user.
-# # # """
-from psycopg2 import connect
+# """
 
-# transactions = []
-# for i in range(4):  #task-3 as loop is said to be applied in the  same process as the task 1 and 2 
+transactions = []
 
-#     # Ask the user to enter the currency type
+# """
+# for i in range(4):
 #     currency = input("Enter currency (USD or EUR or JPY or GBP): ")
-
-#     # Ask the user to enter the amount
 #     amount = float(input("Enter amount: "))
 #     print("Currency entered:", currency)
 #     print("Amount entered:", amount)
-
-
-
-#     # ---------------- Task 2: Conversion ----------------
+#
 #     if currency == "USD":
 #         converted_amount = amount * 132
 #     elif currency == "EUR":
 #         converted_amount = amount * 145
-#     elif currency == "JPY" :
+#     elif currency == "JPY":
 #         converted_amount = amount * 9.4
 #     elif currency == "GBP":
 #         converted_amount = amount * 198
 #     else:
-#         print("Unsupported currency. Conversion not possible.")
-#         exit()  # stop the program if invalid currency
+#         print("Unsupported currency.")
+#         exit()
+#
+#     print("Converted amount in NPR:", converted_amount)
+# """
 
-#         print("Converted amount")
-#         print("Converted amount in NPR:", converted_amount)
-     
+# ---------------- FUNCTIONS ----------------
 
+def convert_currency(amount, rate):
+    return amount * rate
+
+
+def get_currency_rate(currency):
+    if currency == "USD":
+        return 132
+    elif currency == "EUR":
+        return 145
+    elif currency == "INR":
+        return 1.6
+    elif currency == "JPY":
+        return 9.4
+    elif currency == "GBP":
+        return 198
+    else:
+        return None
 
 
 # """
-# Program: Currency Converter
-# Description: This program defines a function convert_currency(amount, rate)
-# that converts a foreign currency amount into Nepalese Rupees (NPR)
-# using a given exchange rate.
+# currency_input = input("Enter the currency: ")
+# rate = get_currency_rate(currency_input)
+#
+# if rate is not None:
+#     print(f"The conversion rate for {currency_input} is: {rate}")
 # """
 
-# def convert_currency(amount, rate):
-#     """
-#     This function converts foreign currency to NPR.
-    
-#     Parameters:
-#     amount : float -> foreign currency amount
-#     rate   : float -> exchange rate to NPR
-    
-#     Returns:
-#     float -> converted amount in NPR
-#     """
-    
-#     npr = amount * rate
-#     return npr
+# ---------------- FILE SAVE ----------------
+
+def save_conversion(currency, amount, result):
+    file = open("currency_history.txt", "a")
+    file.write(f"{currency} {amount} -> NPR {result}\n")
+    file.close()
 
 
-# # Example usage
-# foreign_amount = 100      # Example foreign currency amount
-# exchange_rate = 133.5     # Example rate (1 unit foreign currency = 133.5 NPR)
+# ---------------- DATA ----------------
 
-# result = convert_currency(foreign_amount, exchange_rate)
-
-# print("Converted amount in NPR:", result)
-
-from db import connect_db   # import from db.py
-
-# -------------------------------
-# Part 1: Input Storage
-# -------------------------------
-conversion_request = []
-unique_currencies = set()
-currency_count = {}
-
-# -------------------------------
-# Part 2: Conversion Logic
-# -------------------------------
-exchange_rates = [
+exchanges_rates = [
     ("USD", "NPR", 132),
     ("INR", "NPR", 1.6),
     ("EUR", "NPR", 145),
@@ -90,71 +152,25 @@ exchange_rates = [
     ("JPY", "NPR", 9.4)
 ]
 
-def get_rate_to_npr(source):
-    for rate in exchange_rates:
+conversion_request = []
+unique_currencies = set()
+
+
+def get_rate_to_nrp(source):
+    for rate in exchanges_rates:
         if rate[0] == source:
             return rate[2]
     return None
 
 
-# -------------------------------
-# Create Table
-# -------------------------------
-def create_table():
-    conn = connect_db()
-    if conn is None:
-        return
-
-    cursor = conn.cursor()
-
-    query = """
-    CREATE TABLE IF NOT EXISTS conversions (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100),
-        currency VARCHAR(10),
-        amount FLOAT,
-        converted_amount FLOAT
-    );
-    """
-
-    cursor.execute(query)
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-
-# -------------------------------
-# Insert into Database
-# -------------------------------
-def insert_conversion(name, currency, amount, result):
-    conn = connect_db()
-    cursor = conn.cursor()
-
-    query = """
-    INSERT INTO conversions (name, currency, amount, converted_amount)
-    VALUES (%s, %s, %s, %s)
-    """
-
-    cursor.execute(query, (name, currency, amount, result))
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-
-# -------------------------------
-# Add Conversion Request
-# -------------------------------
 def add_conversion_request():
     name = input("Enter your name: ")
-    source = input("Enter source currency (USD, INR, EUR, GBP, JPY): ").upper()
-    amount = float(input("Enter amount to convert: "))
+    source = input("Enter source currency: ").upper()
+    amount = float(input("Enter amount: "))
 
-    rate = get_rate_to_npr(source)
-
+    rate = get_rate_to_nrp(source)
     if rate is None:
-        print("Currency not supported.\n")
+        print("Invalid currency")
         return
 
     converted_amount = amount * rate
@@ -163,52 +179,77 @@ def add_conversion_request():
         "Name": name,
         "Source": source,
         "Target": "NPR",
-        "Amount": amount
+        "Amount": amount,
     }
 
     conversion_request.append(request)
 
-    unique_currencies.add(source)
-    currency_count[source] = currency_count.get(source, 0) + 1
-
-    # Save to DATABASE instead of file
-    insert_conversion(name, source, amount, converted_amount)
-
-    print(f"{name} converted {amount} {source} to {converted_amount:.2f} NPR\n")
+    print(f"{name} converted {amount} {source} to {converted_amount:.2f} NPR")
 
 
-# -------------------------------
-# Conversion Report
-# -------------------------------
 def print_conversion_report():
     if not conversion_request:
-        print("No conversions to display.\n")
+        print("No conversion to display")
         return
 
-    print("\n---- Conversion Logs ----")
-    for req in conversion_request:
-        converted_amount = req["Amount"] * get_rate_to_npr(req["Source"])
-        print(req["Name"], "converted", req["Amount"], req["Source"], "to", converted_amount, "NPR")
-
-    most_used = max(currency_count, key=currency_count.get)
-    print("\nMost Used Currency:", most_used)
-    print("Unique Currencies:", unique_currencies)
+    for request in conversion_request:
+        converted_amount = request["Amount"] * get_rate_to_nrp(request["Source"])
+        print(request["Name"], request["Amount"], request["Source"], "->", converted_amount)
 
 
-# -------------------------------
-# Main Program
-# -------------------------------
+# ---------------- MENU ----------------
 
-create_table()
+# --------- MENU DRIVEN TASK (MY PART) ---------
 
-while True:
-    try:
-        num_request = int(input("How many conversions do you want to enter? "))
-        break
-    except ValueError:
-        print("Please enter a valid number!")
+def menu():
+    while True:
+        print("\n===== MENU =====")
+        print("1. Insert Data")
+        print("2. Delete Data")
+        print("3. Update Data")
+        print("4. Show Report")
+        print("5. Exit")
 
-for i in range(num_request):
-    add_conversion_request()
+        choice = input("Enter choice: ")
 
-print_conversion_report()
+        if choice == "1":
+            source = input("Enter currency: ").upper()
+            amount = float(input("Enter amount: "))
+            rate = get_currency_rate(source)
+
+            if rate is None:
+                print("Invalid currency")
+                continue
+
+            converted = amount * rate
+            insert_conversion(source, "NPR", amount, converted, rate)
+
+        elif choice == "2":
+            record_id = int(input("Enter ID: "))
+            delete_conversion(record_id)
+
+        elif choice == "3":
+            record_id = int(input("Enter ID: "))
+            amount = float(input("Enter new amount: "))
+            rate = 132
+            converted = amount * rate
+
+            update_conversion(record_id, amount, converted)
+
+        elif choice == "4":
+            print_conversion_report()
+
+        elif choice == "5":
+            print("Exiting...")
+            break
+
+        else:
+            print("Invalid choice")
+
+
+# ---------------- MAIN ----------------
+
+if __name__ == "__main__":
+    create_database()
+    create_table()
+    menu()
